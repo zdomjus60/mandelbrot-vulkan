@@ -39,6 +39,9 @@ Q / E	Zoom Out / Zoom In
 SHIFT (Maiusc)	Precision Mode: rallenta i movimenti per inquadrature millimetriche
 P	Salva uno screenshot istantaneo (snapshot.ppm)
 ESC	Esci dal programma
+
+### Cambiare Palette Colori
+Premi il tasto **C** per ciclare tra le diverse modalità di colorazione disponibili. La nuova modalità predefinita offre transizioni più fluide e variegate, mentre la modalità `paletteMode = 3` può offrire colori più "casuali" tramite hashing.
 📂 4. Struttura dei File
 
     main.cpp: Logica dell'applicazione e gestione finestra.
