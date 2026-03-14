@@ -1,1 +1,4 @@
 token_github
+src/
+venv/
+*.spv

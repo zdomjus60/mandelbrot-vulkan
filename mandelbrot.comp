@@ -1,0 +1,97 @@
+#version 450
+#extension GL_ARB_gpu_shader_fp64 : enable
+
+layout (local_size_x = 16, local_size_y = 16) in;
+layout(std430, binding = 0) buffer outBuffer { uint pixels[]; };
+
+layout(push_constant) uniform PushConstants {
+    double centerX_hi, centerX_lo;
+    double centerY_hi, centerY_lo;
+    double zoom;
+    int maxIterations;
+    float seed, mouseX, mouseY;
+    int paletteMode;
+    uint screenW, screenH;
+} pcs;
+
+struct dd { double hi; double lo; };
+dd dd_add(dd a, dd b) {
+    double s = a.hi + b.hi;
+    double v = s - a.hi;
+    double l = (a.hi - (s - v)) + (b.hi - v) + a.lo + b.lo;
+    double hi = s + l;
+    double lo = l - (hi - s);
+    return dd(hi, lo);
+}
+dd dd_mul(dd a, dd b) {
+    double hi = a.hi * b.hi;
+    double lo = fma(a.hi, b.hi, -hi) + a.hi * b.lo + a.lo * b.hi;
+    double s = hi + lo;
+    double l = lo - (s - hi);
+    return dd(s, l);
+}
+
+float hash(float n) { return fract(sin(n) * 43758.5453123); }
+
+vec3 get_color(int i, double x2, double y2) {
+    float distSq = float(x2 + y2);
+    float sn = float(i) - log2(log2(distSq)) + 4.0;
+    if (pcs.paletteMode == 3) {
+        float f = float(i);
+        return vec3(hash(f + pcs.seed), hash(f * 1.1 + pcs.seed * 2.1), hash(f * 1.2 + pcs.seed * 3.2));
+    }
+    float t = sn * 0.5 + pcs.seed; 
+    return 0.5 + 0.5 * sin(t * 1.2 + vec3(0, 2, 4));
+}
+
+void main() {
+    uint x_coord = gl_GlobalInvocationID.x;
+    uint y_coord = gl_GlobalInvocationID.y;
+    uint W = pcs.screenW; uint H = pcs.screenH;
+    if (x_coord >= W || y_coord >= H) return;
+
+    double aspect = double(W) / double(H);
+    double dx = (double(x_coord) / double(W) - 0.5) * pcs.zoom * aspect;
+    double dy = (double(y_coord) / double(H) - 0.5) * pcs.zoom;
+
+    // Early Exit per la Cardioide (velocizza le zone nere a zoom basso)
+    if (pcs.zoom > 0.01) {
+        double q = (dx+pcs.centerX_hi-0.25)*(dx+pcs.centerX_hi-0.25) + (dy+pcs.centerY_hi)*(dy+pcs.centerY_hi);
+        if (q*(q+(dx+pcs.centerX_hi-0.25)) < 0.25*(dy+pcs.centerY_hi)*(dy+pcs.centerY_hi)) {
+            pixels[y_coord * W + x_coord] = 0xFF000000; return;
+        }
+    }
+
+    int i = 0;
+    double fX2 = 0, fY2 = 0;
+
+    if (pcs.zoom > 1e-12) {
+        double x0 = pcs.centerX_hi + dx, y0 = pcs.centerY_hi + dy;
+        double x = 0, y = 0, x2 = 0, y2 = 0;
+        while (i < pcs.maxIterations && (x2 + y2) <= 1000.0) {
+            y = 2.0 * x * y + y0; x = x2 - y2 + x0;
+            x2 = x * x; y2 = y * y; i++;
+        }
+        fX2 = x2; fY2 = y2;
+    } else {
+        dd cx = dd_add(dd(pcs.centerX_hi, pcs.centerX_lo), dd(dx, 0.0));
+        dd cy = dd_add(dd(pcs.centerY_hi, pcs.centerY_lo), dd(dy, 0.0));
+        dd zx = dd(0,0), zy = dd(0,0), zx2 = dd(0,0), zy2 = dd(0,0);
+        while (i < pcs.maxIterations && (zx2.hi + zy2.hi) <= 1000.0) {
+            zy = dd_add(dd_add(dd_mul(zx, zy), dd_mul(zx, zy)), cy);
+            zx = dd_add(dd_add(zx2, dd(-zy2.hi, -zy2.lo)), cx);
+            zx2 = dd_mul(zx, zx); zy2 = dd_mul(zy, zy);
+            i++;
+        }
+        fX2 = zx2.hi; fY2 = zy2.hi;
+    }
+
+    vec3 rgb = (i == pcs.maxIterations) ? vec3(0.0) : get_color(i, fX2, fY2);
+    
+    // Mirino
+    float tx = pcs.mouseX * float(W), ty = pcs.mouseY * float(H);
+    if ((abs(float(x_coord) - tx) < 0.8 && abs(float(y_coord) - ty) < 15.0) || 
+        (abs(float(y_coord) - ty) < 0.8 && abs(float(x_coord) - tx) < 15.0)) rgb = vec3(1.0);
+
+    pixels[y_coord * W + x_coord] = (255 << 24) | (uint(rgb.b * 255.0) << 16) | (uint(rgb.g * 255.0) << 8) | uint(rgb.r * 255.0);
+}

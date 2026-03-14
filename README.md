@@ -1,69 +1,70 @@
-# Mandelbrot Renderer
+# Mandelbrot Fractal Explorer (Vulkan/OpenGL)
 
-This project implements a Mandelbrot set renderer using Vulkan, featuring high-precision zoom and psychedelic banded coloring.
+This project generates an interactive visualization of the Mandelbrot set, leveraging the power of GPU computation through Vulkan and rendering the output using OpenGL. It's designed for high-performance fractal exploration, especially for deep zooms.
 
 ## Features
 
-- High-precision double-precision floating-point calculations for deep zooms into the Mandelbrot set.
-- Psychedelic banded coloring algorithm.
-- Interactive zoom:
-    - Left-click to zoom in on the cursor position.
-    - Right-click to zoom out.
-    - Press 'C' to randomize the color offset for the psychedelic palette.
+*   **High-Performance Mandelbrot Generation**: Utilizes Vulkan compute shaders to calculate the Mandelbrot set on the GPU for fast rendering.
+*   **Interactive Exploration**: Navigate and zoom into the fractal using keyboard controls.
+*   **Hybrid Precision Rendering**: Employs a 'double-double' (128-bit simulated) precision calculation for both host and shader, enabling extremely deep zooms without precision artifacts. Standard 64-bit doubles are used for normal zoom levels.
+*   **Real-time Visualization**: Renders the fractal in real-time using OpenGL within a GLFW window.
 
-## Building and Running
+## Dependencies
 
-To build and run this project, you need to have the Vulkan SDK and GLFW installed.
+This project has specific build dependencies, tailored for Fedora Linux.
 
-1.  **Clone the repository:**
+**For Fedora:**
+Use the following command to install the necessary development tools and libraries:
+```bash
+sudo dnf install gcc-c++ vulkan-loader-devel glfw-devel mesa-libGL-devel libX11-devel glslang
+```
+
+**Other Systems:**
+On other Linux distributions, macOS, or Windows, you will need to install equivalent development packages for C++ compiler (g++ or equivalent), Vulkan SDK, GLFW, OpenGL, and `glslangValidator`. The exact package names may vary.
+
+## Build and Execution
+
+The project uses a shell script (`compila.sh`) to automate the build process.
+
+1.  **Make the script executable**:
     ```bash
-    git clone https://github.com/zdomjus60/mandelbrot_hi_res.git
-    cd mandelbrot_hi_res
+    chmod +x compila.sh
     ```
-
-2.  **Create a build directory and run CMake:**
+2.  **Compile the project**:
     ```bash
-    mkdir build
-    cd build
-    cmake ..
+    ./compila.sh
     ```
+    This script performs two main actions:
+    *   **Shader Compilation**: It converts the GLSL compute shader (`mandelbrot.comp`) into SPIR-V bytecode using `glslangValidator`.
+    *   **C++ Application Compilation**: It compiles the main C++ application (`main.cpp`) and links it against the necessary Vulkan, GLFW, and OpenGL libraries.
 
-3.  **Build the project:**
-    ```bash
-    cmake --build .
-    ```
+    **Note on Compiler Optimizations (`-O3`):**
+    The `compila.sh` script uses aggressive compiler optimizations (`-O3`). This is crucial for maintaining smooth frame rates and responsive zooming in fractal generation. If you encounter crashes or unexpected behavior, try changing `-O3` to `-O2` in the `compila.sh` script for a more stable, though potentially less performant, build.
 
-4.  **Run the application:**
-    ```bash
-    ./MandelbrotRenderer
-    ```
+## Usage
 
-## Technical Deep Dive
+Once the application is compiled and running, you can explore the Mandelbrot set using the following controls:
 
-This project tackles the challenge of rendering the Mandelbrot set with extreme precision and visual flair using the Vulkan graphics API.
+| Key        | Action                        |
+| :--------- | :---------------------------- |
+| `W`, `A`, `S`, `D` | Pan (Move camera)             |
+| `Q` / `E`  | Zoom Out / Zoom In            |
+| `SHIFT`    | Precision Mode (slow zoom)    |
+| `P`        | Save Screenshot (`snapshot.ppm`)|
+| `ESC`      | Exit the application          |
 
-### High-Precision Calculations
+## File Structure
 
-The Mandelbrot set requires iterative calculations, and for deep zooms, standard single-precision floating-point numbers (floats) quickly lose accuracy, leading to pixelation and incorrect rendering. To overcome this, the renderer utilizes `double` precision floating-point numbers directly within the GLSL shaders. This allows for significantly greater accuracy, enabling exploration of intricate details far beyond what single-precision can achieve.
+*   `main.cpp`: Contains the core C++ application logic, Vulkan/OpenGL setup, window management, and user input handling.
+*   `mandelbrot.comp`: The GLSL compute shader responsible for calculating the Mandelbrot set on the GPU, including the high-precision logic.
+*   `compila.sh`: The shell script that automates the compilation of shaders and the C++ application.
+*   `istruzioni.md`: Contains specific setup and usage instructions.
+*   `.gitignore`: Specifies files and directories to be ignored by Git.
+*   `LICENSE`: The license file for the project.
+*   `README.md`: This file, explaining the project.
 
-### Shader Compilation and SPIR-V Compatibility
-
-A key challenge encountered during development was ensuring compatibility between the GLSL shaders and the Vulkan runtime. The `glslangValidator` tool, used to compile GLSL into SPIR-V (Vulkan's intermediate shader representation), was generating SPIR-V version 1.3. However, the initial Vulkan instance was configured to expect SPIR-V 1.0 (due to `VK_API_VERSION_1_0`). This mismatch caused validation errors during shader module creation. The solution involved explicitly updating the `apiVersion` in the `VkApplicationInfo` structure to `VK_API_VERSION_1_1` (or higher) to align with the SPIR-V version generated by the compiler, thus resolving the compatibility issue.
-
-### Coloring Algorithm
-
-Instead of traditional smooth coloring, this renderer employs a "psychedelic banded" coloring algorithm. This approach uses the iteration count (`i_float`) at which a point escapes the Mandelbrot set to determine its color. By applying trigonometric functions (like `sin` or `cos`) to the iteration count, often combined with a color offset, a vibrant, banded, and often psychedelic visual effect is achieved. This method provides a distinct aesthetic that highlights the fractal's iterative nature.
-
-### Interactive Zoom and Animation
-
-The application provides interactive controls for exploring the Mandelbrot set:
--   **Left-click:** Zooms in on the cursor's position. The new center and zoom level are calculated based on the mouse coordinates, ensuring a precise zoom into the area of interest.
--   **Right-click:** Zooms out, effectively increasing the visible area of the fractal.
--   **'C' key:** Randomizes the color offset, allowing for dynamic changes to the banded coloring without affecting the fractal's geometry.
--   **'D' key:** Toggles between the psychedelic banded coloring and a new totally random, non-graduated palette. Each time 'D' is pressed while in random palette mode, a new set of random colors is generated.
-
-Zoom transitions are smoothly animated using a `smoothstep` easing function. This provides a more visually pleasing experience by gradually interpolating between the starting and target zoom/center coordinates over a short duration.
+*Note: `CMakeLists.txt` is present but not used for the current build process.*
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the `LICENSE` file for details.
