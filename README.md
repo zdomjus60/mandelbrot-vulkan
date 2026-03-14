@@ -9,6 +9,10 @@ This project generates an interactive visualization of the Mandelbrot set, lever
 *   **Hybrid Precision Rendering**: Employs a 'double-double' (128-bit simulated) precision calculation for both host and shader, enabling extremely deep zooms without precision artifacts. Standard 64-bit doubles are used for normal zoom levels.
 *   **Real-time Visualization**: Renders the fractal in real-time using OpenGL within a GLFW window.
 
+## Limitations
+
+While this project utilizes 128-bit real number precision to minimize arithmetic precision errors and enable extremely deep zooms, the visible detail at very high zoom levels is ultimately constrained by the rendering resolution (the number of pixels on screen). At zoom levels of $9 	imes 10^{12}$x and beyond, the effective resolution per unit of the fractal may become too low to resolve finer details, leading to a perceived "pixelation" or "disintegration" of the fractal's structure, rather than a smooth infinite horizon. This is a fundamental aspect of rendering complex fractals at extreme scales within a finite pixel grid.
+
 ## Dependencies
 
 This project has specific build dependencies, tailored for Fedora Linux.
